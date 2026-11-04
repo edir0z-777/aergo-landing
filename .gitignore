@@ -1,0 +1,9 @@
+node_modules/
+infra/cdk.out/
+infra/cdk-outputs.json
+infra/**/*.js
+infra/**/*.d.ts
+!infra/jest.config.js
+.DS_Store
+.env
+.env.*
