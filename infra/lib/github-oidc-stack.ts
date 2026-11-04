@@ -20,6 +20,18 @@ export class GithubOidcStack extends cdk.Stack {
     super(scope, id, props);
 
     const branch = props.branch ?? 'main';
+    const [owner, repo] = props.repository.split('/');
+    if (!owner || !repo) {
+      throw new Error(`repository must be "owner/repo", got "${props.repository}"`);
+    }
+
+    // GitHub issues the subject either as "repo:owner/repo:ref:..." (classic) or
+    // "repo:owner@<id>/repo@<id>:ref:..." (ID-qualified). "@" is not a legal character in
+    // GitHub owner or repository names, so matching both forms stays scoped to this repo.
+    const allowedSubjects = [
+      `repo:${owner}/${repo}:ref:refs/heads/${branch}`,
+      `repo:${owner}@*/${repo}@*:ref:refs/heads/${branch}`,
+    ];
 
     const provider = new iam.OpenIdConnectProvider(this, 'GithubProvider', {
       url: 'https://token.actions.githubusercontent.com',
@@ -35,7 +47,7 @@ export class GithubOidcStack extends cdk.Stack {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
         },
         StringLike: {
-          'token.actions.githubusercontent.com:sub': `repo:${props.repository}:ref:refs/heads/${branch}`,
+          'token.actions.githubusercontent.com:sub': allowedSubjects,
         },
       }),
     });
