@@ -75,6 +75,24 @@ export class LandingStack extends cdk.Stack {
       },
     });
 
+    // Extensionless paths such as /company resolve to the matching .html object.
+    const prettyUrls = new cloudfront.Function(this, 'PrettyUrls', {
+      comment: 'Rewrite extensionless AERGO paths to .html objects',
+      code: cloudfront.FunctionCode.fromInline(`function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  if (uri.endsWith('/')) {
+    request.uri = uri === '/' ? '/index.html' : uri.slice(0, -1) + '.html';
+    return request;
+  }
+  if (uri.indexOf('.') === -1) {
+    request.uri += '.html';
+  }
+  return request;
+}
+`),
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'AERGO LLC landing page',
       domainNames: [props.domainName, `www.${props.domainName}`],
@@ -90,6 +108,12 @@ export class LandingStack extends cdk.Stack {
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         compress: true,
         responseHeadersPolicy: securityHeaders,
+        functionAssociations: [
+          {
+            function: prettyUrls,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
       },
       errorResponses: [
         { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html', ttl: cdk.Duration.minutes(5) },
