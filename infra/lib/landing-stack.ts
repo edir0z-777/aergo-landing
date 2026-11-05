@@ -1,10 +1,19 @@
 import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
+
+export interface LandingStackProps extends cdk.StackProps {
+  readonly domainName: string;
+  readonly certificate: acm.ICertificate;
+  readonly zone: route53.IHostedZone;
+}
 
 /**
  * Static hosting for the AERGO LLC landing page:
@@ -14,7 +23,7 @@ import { Construct } from 'constructs';
  *  - site assets uploaded from ../site on every deploy, with cache invalidation
  */
 export class LandingStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: LandingStackProps) {
     super(scope, id, props);
 
     const siteBucket = new s3.Bucket(this, 'SiteBucket', {
@@ -68,9 +77,11 @@ export class LandingStack extends cdk.Stack {
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'AERGO LLC landing page',
+      domainNames: [props.domainName, `www.${props.domainName}`],
+      certificate: props.certificate,
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
       defaultRootObject: 'index.html',
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
-      // NOTE: minimumProtocolVersion only applies with a custom-domain ACM certificate.
       priceClass: cloudfront.PriceClass.PRICE_CLASS_ALL,
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
@@ -98,8 +109,17 @@ export class LandingStack extends cdk.Stack {
       ],
     });
 
+    const aliasTarget = route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution));
+    for (const [id, recordName] of [
+      ['Apex', undefined],
+      ['Www', 'www'],
+    ] as const) {
+      new route53.ARecord(this, `${id}A`, { zone: props.zone, recordName, target: aliasTarget });
+      new route53.AaaaRecord(this, `${id}AAAA`, { zone: props.zone, recordName, target: aliasTarget });
+    }
+
     new cdk.CfnOutput(this, 'SiteUrl', {
-      value: `https://${distribution.distributionDomainName}`,
+      value: `https://${props.domainName}`,
       description: 'Public URL of the AERGO LLC landing page',
     });
     new cdk.CfnOutput(this, 'DistributionId', { value: distribution.distributionId });

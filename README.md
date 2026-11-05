@@ -37,5 +37,7 @@ npx cdk deploy --all --require-approval never
 
 | Stack | Purpose |
 | --- | --- |
-| `AergoLandingSite` | S3 bucket, CloudFront distribution, security headers, asset deployment |
+| `AergoLandingSite` | S3 bucket, CloudFront distribution (`aergo.tech`), security headers, asset deployment |
+| `AergoLandingDns` | Route 53 hosted zone for `aergo.tech` |
+| `AergoLandingCert` | ACM certificate in `us-east-1` (CloudFront requirement) |
 | `AergoLandingGithubOidc` | GitHub OIDC provider + scoped deploy role for CI |

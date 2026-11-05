@@ -48,7 +48,7 @@ jobs:
 
       - name: CDK deploy site
         working-directory: infra
-        run: npx cdk deploy AergoLandingSite --require-approval never --outputs-file cdk-outputs.json
+        run: npx cdk deploy AergoLandingDns AergoLandingCert AergoLandingSite --require-approval never --outputs-file cdk-outputs.json
 
       - name: Print site URL
         working-directory: infra
